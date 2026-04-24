@@ -28,6 +28,11 @@ service cloud.firestore {
       return resource.data;
     }
 
+    // Connectivity test path
+    match /_internal_/connection_test {
+      allow get: if true;
+    }
+
     // --- Users ---
     match /users/{userId} {
       function isValidUser(data) {
