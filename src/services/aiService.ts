@@ -1,7 +1,10 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Job, UserProfile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Provide compatibility for both server-side (process.env) and client-side (import.meta.env)
+const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
+
+const ai = new GoogleGenAI({ apiKey });
 
 export async function matchJobsWithSeeker(jobs: Job[], seeker: UserProfile) {
   if (!seeker.skills || seeker.skills.length === 0) return jobs;
