@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Job, UserProfile } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapPin, Briefcase, Clock, ChevronRight, Send, Star, Sparkles } from 'lucide-react';
 
 interface JobCardProps {
+  key?: any;
   job: any; // includes optional aiScore and aiReason
   onApply: (jobId: string, employerId: string, message: string) => Promise<void>;
   seekerProfile: UserProfile;

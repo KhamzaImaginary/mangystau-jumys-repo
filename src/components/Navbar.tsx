@@ -5,7 +5,7 @@ import { Briefcase, LayoutDashboard, User, LogOut } from 'lucide-react';
 interface NavbarProps {
   profile: UserProfile;
   activeTab: string;
-  setActiveTab: (tab: 'board' | 'dashboard' | 'profile') => void;
+  setActiveTab: (tab: 'board' | 'dashboard' | 'profile' | 'seeker-apps') => void;
 }
 
 export default function Navbar({ profile, activeTab, setActiveTab }: NavbarProps) {
@@ -31,6 +31,16 @@ export default function Navbar({ profile, activeTab, setActiveTab }: NavbarProps
           >
             Вакансии
           </button>
+          {profile.role === 'seeker' && (
+            <button 
+              onClick={() => setActiveTab('seeker-apps')}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold tracking-tight transition-all ${
+                activeTab === 'seeker-apps' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              Мои отклики
+            </button>
+          )}
           {profile.role === 'employer' && (
             <button 
               onClick={() => setActiveTab('dashboard')}

@@ -37,6 +37,7 @@ export interface Application {
   seekerId: string;
   status: 'pending' | 'viewed' | 'shortlisted' | 'rejected' | 'accepted';
   message?: string;
+  reasoning?: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -48,5 +49,16 @@ export interface Notification {
   message: string;
   type: string;
   isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobAlert {
+  id: string;
+  userId: string;
+  industry?: string;
+  location?: string;
+  keywords?: string;
+  isActive: boolean;
   createdAt: string;
 }

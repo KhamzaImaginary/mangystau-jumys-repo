@@ -8,14 +8,15 @@ import Auth from './components/Auth';
 import JobBoard from './components/JobBoard';
 import EmployerDashboard from './components/EmployerDashboard';
 import SeekerProfile from './components/SeekerProfile';
-import { Briefcase, User as UserIcon, LayoutDashboard, Search } from 'lucide-react';
+import SeekerDashboard from './components/SeekerDashboard';
+import { Briefcase, User as UserIcon, LayoutDashboard, Search, ListTodo } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'board' | 'dashboard' | 'profile'>('board');
+  const [activeTab, setActiveTab] = useState<'board' | 'dashboard' | 'profile' | 'seeker-apps'>('board');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -24,9 +25,11 @@ export default function App() {
         const docRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setProfile({ ...docSnap.data(), userId: firebaseUser.uid } as UserProfile);
+          const userData = { ...docSnap.data(), userId: firebaseUser.uid } as UserProfile;
+          setProfile(userData);
+          // If seeker just registered and is exploring, we stay on 'board'
+          // but we provide the option to view apps
         } else {
-          // If no profile exists, we'll need to create one (handled in Auth)
           setProfile(null);
         }
       } else {
@@ -70,7 +73,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
-      <Navbar profile={profile} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar profile={profile} activeTab={activeTab} setActiveTab={setActiveTab as any} />
       
       <main className="max-w-7xl mx-auto px-4 py-8">
         <AnimatePresence mode="wait">
@@ -93,6 +96,17 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
             >
               <EmployerDashboard profile={profile} />
+            </motion.div>
+          )}
+
+          {activeTab === 'seeker-apps' && profile.role === 'seeker' && (
+            <motion.div
+              key="seeker-apps"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <SeekerDashboard profile={profile} />
             </motion.div>
           )}
 
@@ -120,24 +134,36 @@ export default function App() {
           onClick={() => setActiveTab('board')}
           className={`flex flex-col items-center ${activeTab === 'board' ? 'text-blue-600' : 'text-slate-400'}`}
         >
-          <Search size={24} />
-          <span className="text-[10px] mt-1 uppercase tracking-wider font-bold">Search</span>
+          <Search size={22} />
+          <span className="text-[9px] mt-1 uppercase tracking-wider font-bold">Search</span>
         </button>
+        
+        {profile.role === 'seeker' && (
+          <button 
+            onClick={() => setActiveTab('seeker-apps')}
+            className={`flex flex-col items-center ${activeTab === 'seeker-apps' ? 'text-blue-600' : 'text-slate-400'}`}
+          >
+            <ListTodo size={22} />
+            <span className="text-[9px] mt-1 uppercase tracking-wider font-bold">My Apps</span>
+          </button>
+        )}
+
         {profile.role === 'employer' && (
           <button 
             onClick={() => setActiveTab('dashboard')}
             className={`flex flex-col items-center ${activeTab === 'dashboard' ? 'text-blue-600' : 'text-slate-400'}`}
           >
-            <LayoutDashboard size={24} />
-            <span className="text-[10px] mt-1 uppercase tracking-wider font-bold">Manage</span>
+            <LayoutDashboard size={22} />
+            <span className="text-[9px] mt-1 uppercase tracking-wider font-bold">Manage</span>
           </button>
         )}
+
         <button 
           onClick={() => setActiveTab('profile')}
           className={`flex flex-col items-center ${activeTab === 'profile' ? 'text-blue-600' : 'text-slate-400'}`}
         >
-          <UserIcon size={24} />
-          <span className="text-[10px] mt-1 uppercase tracking-wider font-bold">Profile</span>
+          <UserIcon size={22} />
+          <span className="text-[9px] mt-1 uppercase tracking-wider font-bold">Profile</span>
         </button>
       </div>
     </div>

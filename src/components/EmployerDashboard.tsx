@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Job, UserProfile, Application } from '../types';
-import { Plus, LayoutDashboard, FileText, CheckCircle2, XCircle, Trash2, MapPin, Briefcase } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Plus, LayoutDashboard, FileText, CheckCircle2, XCircle, Trash2, MapPin, Briefcase, Send, MessageSquare } from 'lucide-react';
 import { INDUSTRIES, AKTAU_REGIONS } from '../constants';
 
 interface EmployerDashboardProps {
@@ -13,7 +14,8 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [applications, setApplications] = useState<(Application & { seekerProfile?: UserProfile, jobTitle?: string })[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'jobs' | 'apps' | 'post'>('jobs');
+  const [activeView, setActiveView] = useState<'jobs' | 'apps' | 'post' | 'telegram'>('jobs');
+  const [botActive, setBotActive] = useState<boolean | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -27,8 +29,19 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
   useEffect(() => {
     if (profile?.userId) {
       fetchData();
+      checkBotStatus();
     }
   }, [profile?.userId]);
+
+  const checkBotStatus = async () => {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      setBotActive(!!data.botActive);
+    } catch (e) {
+      setBotActive(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!profile?.userId) return;
@@ -48,9 +61,9 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
       console.log("Fetched apps via employerId:", appsSnap.size);
       
       const allApps: any[] = [];
-      const processedAppData = appsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const processedAppData = appsSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
-      for (const appData of processedAppData) {
+      for (const appData of processedAppData as any[]) {
         // Find job title
         const job = fetchedJobs.find(j => j.id === appData.jobId);
         let jobTitle = job?.title;
@@ -59,7 +72,7 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
           try {
             const jRef = doc(db, 'jobs', appData.jobId);
             const jSnap = await getDoc(jRef);
-            jobTitle = jSnap.exists() ? jSnap.data().title : 'Unknown Job';
+            jobTitle = jSnap.exists() ? (jSnap.data() as any).title : 'Unknown Job';
           } catch (e) {
             jobTitle = 'Unknown Job';
           }
@@ -93,19 +106,32 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
     e.preventDefault();
     setLoading(true);
     try {
-      await addDoc(collection(db, 'jobs'), {
+      const jobData = {
         employerId: profile.userId,
         title,
         description,
         industry,
-        skills: description.split(',').map(s => s.trim()).filter(s => s), // Simple skill extraction
+        skills: description.split(',').map(s => s.trim()).filter(s => s),
         location: { city: 'Aktau', microdistrict },
         jobType,
         experience,
         salary,
         status: 'open',
-        createdAt: serverTimestamp()
+        createdAt: new Date().toISOString() // Using string date for the alert API payload
+      };
+
+      const docRef = await addDoc(collection(db, 'jobs'), {
+        ...jobData,
+        createdAt: serverTimestamp() // Firestore server timestamp
       });
+
+      // Trigger alerts check via backend
+      fetch('/api/check-job-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job: { ...jobData, id: docRef.id } })
+      }).catch(err => console.error("Alerts check failed:", err));
+
       setTitle('');
       setDescription('');
       setActiveView('jobs');
@@ -116,16 +142,45 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
     setLoading(false);
   };
 
-  const handleUpdateAppStatus = async (appId: string, status: string) => {
+  const [showReasoningModal, setShowReasoningModal] = useState<string | null>(null);
+  const [reasoning, setReasoning] = useState('');
+  const [pendingStatus, setPendingStatus] = useState<string>('');
+
+  const handleUpdateAppStatus = async (appId: string, status: string, reasoningText?: string) => {
     try {
+      const app = applications.find(a => a.id === appId);
+      
       await updateDoc(doc(db, 'applications', appId), { 
         status, 
+        reasoning: reasoningText || '',
         updatedAt: serverTimestamp() 
       });
+
+      // Notify seeker via backend
+      if (app) {
+        fetch('/api/notify-seeker', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            seekerId: app.seekerId,
+            jobTitle: app.jobTitle,
+            status,
+            reasoning: reasoningText
+          })
+        }).catch(err => console.error("Seeker notification failed:", err));
+      }
+
       fetchData();
+      setShowReasoningModal(null);
+      setReasoning('');
     } catch (err) {
       console.error("Update app error:", err);
     }
+  };
+
+  const openReasoningModal = (appId: string, status: string) => {
+    setShowReasoningModal(appId);
+    setPendingStatus(status);
   };
 
   const handleDeleteJob = async (jobId: string) => {
@@ -167,6 +222,15 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
         >
           <Plus size={18} />
           Разместить вакансию
+        </button>
+        <button 
+          onClick={() => setActiveView('telegram')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all text-sm tracking-tight ${
+            activeView === 'telegram' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <MessageSquare size={18} />
+          Telegram уведомления
         </button>
       </div>
 
@@ -248,22 +312,71 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
                     "{app.message || 'Без сопроводительного письма'}"
                   </div>
 
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleUpdateAppStatus(app.id, 'accepted')}
-                      className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600"
-                    >
-                      <CheckCircle2 size={16} /> Принять
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateAppStatus(app.id, 'rejected')}
-                      className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50"
-                    >
-                      <XCircle size={16} /> Отклонить
-                    </button>
-                  </div>
+                  {app.reasoning && (
+                    <div className="p-4 bg-blue-50 rounded-2xl mb-6 text-sm font-medium text-blue-700 border border-blue-100">
+                      <span className="font-bold">Ваш ответ (причина):</span> {app.reasoning}
+                    </div>
+                  )}
+                  
+                  {app.status === 'pending' && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => openReasoningModal(app.id, 'accepted')}
+                        className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600"
+                      >
+                        <CheckCircle2 size={16} /> Принять
+                      </button>
+                      <button 
+                        onClick={() => openReasoningModal(app.id, 'rejected')}
+                        className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-50"
+                      >
+                        <XCircle size={16} /> Отклонить
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))
+            )}
+            
+            {showReasoningModal && (
+              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-200"
+                >
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">
+                    {pendingStatus === 'accepted' ? 'Принять кандидата' : 'Отклонить кандидата'}
+                  </h3>
+                  <p className="text-slate-500 text-sm mb-6">
+                    {pendingStatus === 'accepted' 
+                      ? 'Укажите причину или приветственное сообщение (необязательно). Кандидат получит уведомление.' 
+                      : 'Укажите причину отказа (необязательно). Это поможет соискателю понять, что пошло не так.'}
+                  </p>
+                  
+                  <textarea 
+                    value={reasoning}
+                    onChange={(e) => setReasoning(e.target.value)}
+                    className="w-full h-32 px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium mb-6"
+                    placeholder="Напишите здесь..."
+                  />
+
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowReasoningModal(null)}
+                      className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-200"
+                    >
+                      Отмена
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateAppStatus(showReasoningModal, pendingStatus, reasoning)}
+                      className={`flex-1 py-3 rounded-xl font-bold text-sm text-white shadow-lg ${pendingStatus === 'accepted' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
+                    >
+                      {pendingStatus === 'accepted' ? 'Подтвердить прием' : 'Подтвердить отказ'}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
             )}
           </div>
         )}
@@ -368,6 +481,84 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
               {loading ? 'Публикация...' : 'Опубликовать вакансию'}
             </button>
           </form>
+        )}
+
+        {activeView === 'telegram' && (
+          <div className="bg-white rounded-3xl p-8 border border-slate-200 space-y-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <MessageSquare className="text-blue-600" /> Telegram Уведомления
+              </h2>
+              {botActive === false && (
+                <div className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 flex items-center gap-2">
+                  <XCircle size={14} /> Бот не настроен
+                </div>
+              )}
+            </div>
+
+            {botActive === false && (
+              <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl text-sm text-amber-800">
+                <p className="font-bold mb-1 italic">Внимание администратора!</p>
+                <p>Бот не активен. Проверьте правильность <code className="bg-amber-100 px-1 rounded">TELEGRAM_BOT_TOKEN</code> в настройках переменных окружения.</p>
+              </div>
+            )}
+            
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-600 font-bold">1</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 mb-1">Откройте Telegram</h4>
+                <p className="text-sm text-slate-500 leading-relaxed">
+                  Найдите своего бота в Telegram и запустите его (нажмите <b>Start</b>).
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 flex items-start gap-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-600 font-bold">2</span>
+              </div>
+              <div>
+                <h4 className="font-bold text-slate-900 mb-1">Отправьте команду</h4>
+                <p className="text-sm text-slate-500 leading-relaxed mb-3">
+                  Скопируйте и отправьте боту следующую команду:
+                </p>
+                <div className="bg-slate-900 text-white p-3 rounded-xl font-mono text-xs flex items-center justify-between">
+                  <span>/link {profile.userId}</span>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(`/link ${profile.userId}`);
+                      alert('Команда скопирована!');
+                    }}
+                    className="text-blue-400 hover:text-blue-300 font-bold"
+                  >
+                    Копировать
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-900">Статус подключения</h4>
+                  <p className="text-xs text-slate-500">
+                    {profile.telegramId ? 'Статус: Активен (Уведомления включены)' : 'Статус: Не подключен'}
+                  </p>
+                </div>
+                {profile.telegramId ? (
+                  <span className="px-4 py-2 bg-green-100 text-green-700 rounded-full text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 size={14} /> Подключено
+                  </span>
+                ) : (
+                  <span className="px-4 py-2 bg-amber-100 text-amber-700 rounded-full text-xs font-bold flex items-center gap-2">
+                    <XCircle size={14} /> Ожидание...
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

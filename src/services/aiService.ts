@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Job, UserProfile } from "../types";
 
 // Provide compatibility for both server-side (process.env) and client-side (import.meta.env)
-const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
+const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
 
 const ai = new GoogleGenAI({ apiKey });
 

@@ -72,6 +72,7 @@ export default function JobBoard({ profile }: JobBoardProps) {
 
   const handleApply = async (jobId: string, employerId: string, message: string) => {
     try {
+      const job = jobs.find(j => j.id === jobId);
       await addDoc(collection(db, 'applications'), {
         jobId,
         employerId,
@@ -81,6 +82,21 @@ export default function JobBoard({ profile }: JobBoardProps) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      
+      // Notify employer via backend
+      if (job) {
+        fetch('/api/notify-employer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employerId,
+            jobTitle: job.title,
+            seekerName: profile.name,
+            message: message
+          })
+        }).catch(err => console.error("Notification failed:", err));
+      }
+
       alert('Отклик успешно отправлен!');
     } catch (err) {
       console.error("Apply error:", err);

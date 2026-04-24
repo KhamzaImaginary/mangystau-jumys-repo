@@ -70,6 +70,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "title", "message", "isRead"]
+    },
+    "JobAlert": {
+      "title": "Job Alert",
+      "description": "Subscription for job notifications based on criteria.",
+      "type": "object",
+      "properties": {
+        "alertId": { "type": "string" },
+        "userId": { "type": "string" },
+        "industry": { "type": "string" },
+        "location": { "type": "string" },
+        "keywords": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "isActive"]
     }
   },
   "firestore": {
@@ -88,6 +103,10 @@
     "/notifications/{notificationId}": {
       "schema": "Notification",
       "description": "User notifications."
+    },
+    "/job_alerts/{alertId}": {
+      "schema": "JobAlert",
+      "description": "Job alerts for seekers."
     }
   }
 }

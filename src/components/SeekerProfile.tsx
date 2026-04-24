@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
@@ -23,6 +23,22 @@ export default function SeekerProfile({ userId, email, initialProfile, isInitial
   const [location, setLocation] = useState(initialProfile?.location || '');
   const [telegramId, setTelegramId] = useState(initialProfile?.telegramId || '');
   const [loading, setLoading] = useState(false);
+
+  const [botActive, setBotActive] = useState<boolean | null>(null);
+
+  const checkBotStatus = async () => {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      setBotActive(!!data.botActive);
+    } catch (e) {
+      setBotActive(false);
+    }
+  };
+
+  React.useEffect(() => {
+    checkBotStatus();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,20 +134,75 @@ export default function SeekerProfile({ userId, email, initialProfile, isInitial
           </div>
         </div>
 
-        <div>
-          <label className="block text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-2 ml-1">Район проживания (Актау)</label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-3 text-slate-400" size={16} />
-            <select 
-              value={location} 
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none appearance-none"
-            >
-              <option value="">Выберите микрорайон</option>
-              {AKTAU_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-            </select>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-2 ml-1">Район проживания (Актау)</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-3 text-slate-400" size={16} />
+              <select 
+                value={location} 
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none appearance-none"
+              >
+                <option value="">Выберите микрорайон</option>
+                {AKTAU_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Telegram Settings */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-widest font-bold text-slate-400 mb-2 ml-1">Telegram ID (для уведомлений)</label>
+            <div className="relative">
+              <Send className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                value={telegramId} 
+                onChange={(e) => setTelegramId(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#00529B]"
+                placeholder="Telegram ID"
+                readOnly
+              />
+            </div>
           </div>
         </div>
+
+        {botActive && !telegramId && (
+          <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+            <h4 className="text-xs font-bold text-blue-700 mb-2 flex items-center gap-2">
+              <Send size={14} /> Подключить Telegram уведомления
+            </h4>
+            <p className="text-[11px] text-blue-600 mb-3 leading-relaxed">
+              Чтобы получать мгновенные уведомления о статусе ваших откликов, отправьте боту команду:
+            </p>
+            <div className="bg-white p-2 rounded-xl border border-blue-200 font-mono text-[10px] flex items-center justify-between">
+              <span>/link {userId}</span>
+              <button 
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`/link ${userId}`);
+                  alert('Команда скопирована!');
+                }}
+                className="text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded"
+              >
+                Копировать
+              </button>
+            </div>
+          </div>
+        )}
+
+        {telegramId && (
+          <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white">
+                <Send size={14} />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-green-700">Telegram подключен</h4>
+                <p className="text-[10px] text-green-600">ID: {telegramId}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {role === 'seeker' && (
           <div>
