@@ -16,7 +16,7 @@ async function startServer() {
 
   // API Routes
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "Jumys Mangystau API is running" });
+    res.json({ status: "ok", message: "Mangystau Jumys API is running" });
   });
 
   // Telegram Webhook (Simulated/Ready for integration)
