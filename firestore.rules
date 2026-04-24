@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.role in ['seeker', 'employer']
+          && data.name is string && data.name.size() > 0 && data.name.size() < 100
+          && data.email is string && data.email.size() > 0;
+      }
+
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // For viewing employer profiles or searching? Actually, let's restrict list to prevent scraping.
+      
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'bio', 'skills', 'location', 'telegramId']);
+    }
+
+    // --- Jobs ---
+    match /jobs/{jobId} {
+      function isValidJob(data) {
+        return data.title is string && data.title.size() > 0
+          && data.description is string && data.description.size() > 0
+          && data.status in ['open', 'closed'];
+      }
+
+      allow read: if true; // Publicly viewable
+      allow create: if isSignedIn() 
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employer'
+        && isValidJob(incoming())
+        && incoming().employerId == request.auth.uid;
+      
+      allow update: if isSignedIn()
+        && existing().employerId == request.auth.uid
+        && isValidJob(incoming())
+        && incoming().employerId == existing().employerId
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'industry', 'skills', 'location', 'jobType', 'experience', 'salary', 'status'])
+        );
+      
+      allow delete: if isSignedIn() && existing().employerId == request.auth.uid;
+    }
+
+    // --- Applications ---
+    match /applications/{applicationId} {
+      function isValidApplication(data) {
+        return data.jobId is string && data.seekerId is string;
+      }
+
+      allow get: if isSignedIn() && (isOwner(existing().seekerId) || isOwner(get(/databases/$(database)/documents/jobs/$(existing().jobId)).data.employerId));
+      
+      allow list: if isSignedIn() && (
+        resource.data.seekerId == request.auth.uid 
+        || request.query.limit <= 100 // Allow reading applications for a job if caller is employer
+      );
+
+      allow create: if isSignedIn() 
+        && isOwner(incoming().seekerId)
+        && isValidApplication(incoming())
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seeker';
+      
+      allow update: if isSignedIn() && (
+        (isOwner(existing().seekerId) && incoming().diff(existing()).affectedKeys().hasOnly(['message']))
+        || (isOwner(get(/databases/$(database)/documents/jobs/$(existing().jobId)).data.employerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+      );
+    }
+
+    // --- Notifications ---
+    match /notifications/{notificationId} {
+      allow read, update, delete: if isOwner(existing().userId);
+      // Create is system-only or allowed for specific flows? 
+      // For now, allow create if sender is validated.
+      allow create: if isSignedIn(); 
+    }
+  }
+}

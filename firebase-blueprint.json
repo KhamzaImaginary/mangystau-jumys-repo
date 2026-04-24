@@ -1,0 +1,93 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile for seekers or employers.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["seeker", "employer"] },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "bio": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string" },
+        "telegramId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "name", "email"]
+    },
+    "Job": {
+      "title": "Job Vacancy",
+      "description": "A job posting by an employer.",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string" },
+        "employerId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "industry": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "object", "properties": {
+          "city": { "type": "string" },
+          "microdistrict": { "type": "string" }
+        } },
+        "jobType": { "type": "string", "enum": ["full-time", "part-time", "gig", "internship"] },
+        "experience": { "type": "string", "enum": ["no-experience", "1-3-years", "3-plus-years"] },
+        "salary": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["employerId", "title", "description", "industry", "location", "jobType", "status"]
+    },
+    "Application": {
+      "title": "Job Application",
+      "description": "A response to a job vacancy by a seeker.",
+      "type": "object",
+      "properties": {
+        "applicationId": { "type": "string" },
+        "jobId": { "type": "string" },
+        "seekerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "viewed", "shortlisted", "rejected", "accepted"] },
+        "message": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["jobId", "seekerId", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app notification for the user.",
+      "type": "object",
+      "properties": {
+        "notificationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "isRead"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles."
+    },
+    "/jobs/{jobId}": {
+      "schema": "Job",
+      "description": "Job vacancies."
+    },
+    "/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Job applications connecting seekers and jobs."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
+    }
+  }
+}
