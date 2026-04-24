@@ -72,24 +72,31 @@ service cloud.firestore {
     // --- Applications ---
     match /applications/{applicationId} {
       function isValidApplication(data) {
-        return data.jobId is string && data.seekerId is string;
+        return data.jobId is string && data.seekerId is string && data.employerId is string;
       }
 
-      allow get: if isSignedIn() && (isOwner(existing().seekerId) || isOwner(get(/databases/$(database)/documents/jobs/$(existing().jobId)).data.employerId));
+      allow get: if isSignedIn() && (isOwner(existing().seekerId) || isOwner(existing().employerId));
       
       allow list: if isSignedIn() && (
         resource.data.seekerId == request.auth.uid 
-        || request.query.limit <= 100 // Allow reading applications for a job if caller is employer
+        || resource.data.employerId == request.auth.uid
       );
 
       allow create: if isSignedIn() 
         && isOwner(incoming().seekerId)
         && isValidApplication(incoming())
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seeker';
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'seeker'
+        && incoming().employerId == get(/databases/$(database)/documents/jobs/$(incoming().jobId)).data.employerId;
       
       allow update: if isSignedIn() && (
         (isOwner(existing().seekerId) && incoming().diff(existing()).affectedKeys().hasOnly(['message']))
-        || (isOwner(get(/databases/$(database)/documents/jobs/$(existing().jobId)).data.employerId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']))
+        || (
+          (
+            ('employerId' in existing() && isOwner(existing().employerId)) || 
+            isOwner(get(/databases/$(database)/documents/jobs/$(existing().jobId)).data.employerId)
+          ) && 
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        )
       );
     }
 

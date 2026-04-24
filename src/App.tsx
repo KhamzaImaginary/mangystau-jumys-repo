@@ -24,7 +24,7 @@ export default function App() {
         const docRef = doc(db, 'users', firebaseUser.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setProfile(docSnap.data() as UserProfile);
+          setProfile({ ...docSnap.data(), userId: firebaseUser.uid } as UserProfile);
         } else {
           // If no profile exists, we'll need to create one (handled in Auth)
           setProfile(null);

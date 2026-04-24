@@ -70,10 +70,11 @@ export default function JobBoard({ profile }: JobBoardProps) {
     job.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleApply = async (jobId: string, message: string) => {
+  const handleApply = async (jobId: string, employerId: string, message: string) => {
     try {
       await addDoc(collection(db, 'applications'), {
         jobId,
+        employerId,
         seekerId: profile.userId,
         status: 'pending',
         message,

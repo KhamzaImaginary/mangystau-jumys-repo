@@ -5,7 +5,7 @@ import { MapPin, Briefcase, Clock, ChevronRight, Send, Star, Sparkles } from 'lu
 
 interface JobCardProps {
   job: any; // includes optional aiScore and aiReason
-  onApply: (jobId: string, message: string) => Promise<void>;
+  onApply: (jobId: string, employerId: string, message: string) => Promise<void>;
   seekerProfile: UserProfile;
 }
 
@@ -17,7 +17,7 @@ export default function JobCard({ job, onApply, seekerProfile }: JobCardProps) {
 
   const handleApplyClick = async () => {
     setIsApplying(true);
-    await onApply(job.id, message);
+    await onApply(job.id, job.employerId, message);
     setIsApplying(false);
     setShowApplyForm(false);
     setMessage('');

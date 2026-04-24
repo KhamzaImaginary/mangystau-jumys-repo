@@ -25,42 +25,66 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
   const [salary, setSalary] = useState('');
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (profile?.userId) {
+      fetchData();
+    }
+  }, [profile?.userId]);
 
   const fetchData = async () => {
+    if (!profile?.userId) return;
     setLoading(true);
+    console.log("Fetching data for employer:", profile.userId);
     try {
       // Fetch Jobs
       const jobsQ = query(collection(db, 'jobs'), where('employerId', '==', profile.userId));
       const jobsSnap = await getDocs(jobsQ);
       const fetchedJobs = jobsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Job));
       setJobs(fetchedJobs);
+      console.log("Fetched jobs:", fetchedJobs.length);
 
-      // Fetch Applications for these jobs
+      // Fetch Applications (Only by employerId for performance and rules compatibility)
+      const appsQ = query(collection(db, 'applications'), where('employerId', '==', profile.userId));
+      const appsSnap = await getDocs(appsQ);
+      console.log("Fetched apps via employerId:", appsSnap.size);
+      
       const allApps: any[] = [];
-      for (const job of fetchedJobs) {
-        const appsQ = query(collection(db, 'applications'), where('jobId', '==', job.id));
-        const appsSnap = await getDocs(appsQ);
-        for (const appDoc of appsSnap.docs) {
-          const appData = appDoc.data();
-          
-          // Fetch seeker profile
+      const processedAppData = appsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      for (const appData of processedAppData) {
+        // Find job title
+        const job = fetchedJobs.find(j => j.id === appData.jobId);
+        let jobTitle = job?.title;
+
+        if (!jobTitle) {
+          try {
+            const jRef = doc(db, 'jobs', appData.jobId);
+            const jSnap = await getDoc(jRef);
+            jobTitle = jSnap.exists() ? jSnap.data().title : 'Unknown Job';
+          } catch (e) {
+            jobTitle = 'Unknown Job';
+          }
+        }
+        
+        // Fetch seeker profile
+        let sProfile: UserProfile | undefined = undefined;
+        try {
           const sRef = doc(db, 'users', appData.seekerId);
           const sSnap = await getDoc(sRef);
-          const sProfile = sSnap.exists() ? sSnap.data() as UserProfile : undefined;
-          
-          allApps.push({ 
-            id: appDoc.id, 
-            ...appData, 
-            seekerProfile: sProfile,
-            jobTitle: job.title
-          });
+          sProfile = sSnap.exists() ? { ...sSnap.data(), userId: appData.seekerId } as UserProfile : undefined;
+        } catch (e) {
+          console.error("Error fetching seeker profile:", e);
         }
+        
+        allApps.push({ 
+          ...appData, 
+          seekerProfile: sProfile,
+          jobTitle: jobTitle
+        });
       }
       setApplications(allApps);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch Data Error:", err);
+      // alert(`Ошибка доступа: ${err.message}`);
     }
     setLoading(false);
   };
