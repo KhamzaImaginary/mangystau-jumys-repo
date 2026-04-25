@@ -52,10 +52,20 @@ export async function matchJobsWithSeeker(jobs: Job[], seeker: UserProfile) {
     });
 
     const matches = JSON.parse(response.text || "[]");
-    return matches.map((match: any) => ({
+    
+    // De-duplicate indices to prevent React key errors
+    const uniqueIndices = new Set();
+    const uniqueMatches = matches.filter((m: any) => {
+      if (uniqueIndices.has(m.jobIndex)) return false;
+      uniqueIndices.add(m.jobIndex);
+      return true;
+    });
+
+    return uniqueMatches.map((match: any, idx: number) => ({
       ...jobs[match.jobIndex],
       aiScore: match.score,
-      aiReason: match.reason
+      aiReason: match.reason,
+      aiMatchId: `match-${match.jobIndex}-${idx}`
     })).sort((a: any, b: any) => b.aiScore - a.aiScore);
   } catch (error) {
     console.error("AI Choice failed:", error);

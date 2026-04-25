@@ -165,11 +165,11 @@ export default function JobBoard({ profile }: JobBoardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
         {loading ? (
           Array(6).fill(0).map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl h-64 animate-pulse border border-slate-100" />
+            <div key={`job-skeleton-${i}`} className="bg-white rounded-2xl h-64 animate-pulse border border-slate-100" />
           ))
         ) : filteredJobs.length > 0 ? (
-          filteredJobs.map(job => (
-            <JobCard key={job.id} job={job} onApply={handleApply} seekerProfile={profile} />
+          filteredJobs.map((job, idx) => (
+            <JobCard key={job.id || `job-${idx}`} job={job} onApply={handleApply} seekerProfile={profile} />
           ))
         ) : (
           <div className="col-span-full py-20 text-center text-slate-400 font-medium">

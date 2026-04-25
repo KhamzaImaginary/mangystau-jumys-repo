@@ -73,8 +73,8 @@ export default function JobCard({ job, onApply, seekerProfile }: JobCardProps) {
         )}
 
         <div className="flex flex-wrap gap-1.5 mb-6">
-          {job.skills.slice(0, 3).map((s: string) => (
-            <span key={s} className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[11px] font-semibold rounded-lg">
+          {job.skills.slice(0, 3).map((s: string, idx: number) => (
+            <span key={`${s}-${idx}`} className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[11px] font-semibold rounded-lg">
               {s}
             </span>
           ))}

@@ -76,12 +76,40 @@ if (botToken && botToken.includes(":")) {
   try {
     bot = new Telegraf(botToken);
 
-    bot.start((ctx) => {
+    bot.start(async (ctx) => {
+      const payload = (ctx as any).startPayload;
+      if (payload) {
+        // Handle deep linking automatically
+        try {
+          const userId = payload;
+          console.log(`Deep link detected for user: ${userId}`);
+          const userRef = db.collection("users").doc(userId);
+          const userSnap = await userRef.get();
+
+          if (!userSnap.exists) {
+            return ctx.reply("❌ Ошибка: Пользователь не найден. Проверьте ссылку.");
+          }
+
+          await userRef.update({
+            telegramId: ctx.from.id.toString()
+          });
+
+          return ctx.reply(
+            "✅ *Аккаунт успешно привязан!*\n\n" +
+            "Теперь вы будете мгновенно получать уведомления о новых вакансиях и статусах откликов.",
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error: any) {
+          console.error("Deep link error:", error);
+          return ctx.reply("❌ Произошла ошибка при привязке аккаунта.");
+        }
+      }
+
       ctx.reply(
-        "Здравствуйте! Это бот Mangystau Jumys.\n\n" +
-        "Для получения уведомлений используйте команду:\n" +
-        "/link [ваш_ID]\n\n" +
-        "ID можно найти на странице профиля."
+        "👋 *Добро пожаловать в Mangystau Jumys!*\n\n" +
+        "Я помогу вам не пропустить важные предложения о работе.\n\n" +
+        "Чтобы начать, перейдите в личный кабинет в приложении и нажмите 'Подключить Telegram'.",
+        { parse_mode: 'Markdown' }
       );
     });
 
@@ -108,7 +136,11 @@ if (botToken && botToken.includes(":")) {
         });
 
         console.log(`Successfully linked user ${userId} to Telegram ID ${ctx.from.id}`);
-        ctx.reply("Поздравляем! Ваш Telegram аккаунт успешно подключен. Теперь вы будете получать уведомления о новых откликах.");
+        ctx.reply(
+          "✅ *Аккаунт успешно подключен!*\n\n" +
+          "Теперь вы будете получать мгновенные уведомления о вакансиях, откликах и статусах.",
+          { parse_mode: 'Markdown' }
+        );
       } catch (error: any) {
         console.error("Detailed Link Error:", {
           message: error.message,
@@ -171,12 +203,13 @@ async function startServer() {
           const timestamp = new Date().toLocaleString('ru-RU');
           await bot.telegram.sendMessage(
             userData.telegramId,
-            `🔔 Новый отклик!\n\n` +
-            `💼 Вакансия: ${jobTitle}\n` +
-            `👤 От: ${seekerName}\n` +
-            `💬 Сообщение: ${message || 'Без сообщения'}\n` +
+            `🔔 *Новый отклик!*\n\n` +
+            `💼 Вакансия: *${jobTitle}*\n` +
+            `👤 От: *${seekerName}*\n` +
+            `💬 Сообщение: _${message || 'Без сообщения'}_\n` +
             `📅 Время: ${timestamp}\n\n` +
-            `Кликните по ссылке в профиле, чтобы рассмотреть кандидата.`
+            `Кликните по ссылке в профиле, чтобы рассмотреть кандидата.`,
+            { parse_mode: 'Markdown' }
           );
           return res.json({ success: true });
         }
@@ -214,11 +247,12 @@ async function startServer() {
           
           await bot.telegram.sendMessage(
             userData.telegramId,
-            `🔔 Обновление статуса отклика!\n\n` +
-            `💼 Вакансия: ${jobTitle}\n` +
-            `📊 Новый статус: ${statusText}\n` +
-            (reasoning ? `📝 Причина: ${reasoning}\n` : '') +
-            `\nПроверьте подробности в своем кабинете.`
+            `🔔 *Обновление статуса отклика!*\n\n` +
+            `💼 Вакансия: *${jobTitle}*\n` +
+            `📊 Новый статус: *${statusText}*\n` +
+            (reasoning ? `\n📝 *Комментарий:* ${reasoning}\n` : '') +
+            `\nПроверьте подробности в своем кабинете в приложении.`,
+            { parse_mode: 'Markdown' }
           );
           return res.json({ success: true });
         }
@@ -335,9 +369,9 @@ async function startServer() {
           const jobData = jobSnap.data();
 
           // 3. Create Application
-          const qualities = seekerData.skills ? `Мои навыки: ${seekerData.skills}. ` : "";
-          const experience = seekerData.experience ? `Опыт: ${seekerData.experience}.` : "";
-          const message = `Отклик через Telegram. ${qualities}${experience}`.trim();
+          const qualities = seekerData.skills ? `*Навыки:* ${seekerData.skills}` : "";
+          const experience = seekerData.experience ? `*Опыт:* ${seekerData.experience}` : "";
+          const message = `✨ *Отклик через Telegram*\n\n${qualities}\n${experience}`.trim();
 
           await db.collection("applications").add({
             jobId: jobId,
@@ -351,8 +385,24 @@ async function startServer() {
           await ctx.editMessageText(`✅ Вы успешно откликнулись на вакансию: *${jobData.title}*`, { parse_mode: 'Markdown' });
           ctx.answerCbQuery("Отклик успешно отправлен!");
 
-          // 4. Optionally notify the employer (reuse logic or trigger API)
-          // ... Notification to employer logic here ...
+          // 4. Notify the employer
+          const employerRef = db.collection("users").doc(jobData.employerId);
+          const employerSnap = await employerRef.get();
+          
+          if (employerSnap.exists) {
+            const employerData = employerSnap.data();
+            if (employerData && employerData.telegramId) {
+              await bot.telegram.sendMessage(
+                employerData.telegramId,
+                `🔔 *Новый отклик из Telegram!*\n\n` +
+                `💼 Вакансия: *${jobData.title}*\n` +
+                `👤 Кандидат: *${seekerData.name}*\n\n` +
+                `${qualities}\n` +
+                `${experience}\n\n` +
+                `Проверьте профиль кандидата в приложении.`
+              );
+            }
+          }
 
         } catch (error: any) {
           console.error("Apply callback error:", error);

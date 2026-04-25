@@ -111,7 +111,7 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
         title,
         description,
         industry,
-        skills: description.split(',').map(s => s.trim()).filter(s => s),
+        skills: [...new Set(description.split(',').map(s => s.trim()).filter(s => s))] as string[],
         location: { city: 'Aktau', microdistrict },
         jobType,
         experience,
@@ -255,8 +255,8 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
                 <button onClick={() => setActiveView('post')} className="mt-4 text-blue-600 font-bold hover:underline">Добавить первую</button>
               </div>
             ) : (
-              jobs.map(job => (
-                <div key={job.id} className="bg-white rounded-3xl p-6 border border-slate-200 flex items-center justify-between shadow-sm hover:border-blue-300 transition-all">
+              jobs.map((job, idx) => (
+                <div key={job.id || `job-${idx}`} className="bg-white rounded-3xl p-6 border border-slate-200 flex items-center justify-between shadow-sm hover:border-blue-300 transition-all">
                   <div>
                     <h3 className="font-bold text-lg text-slate-900 mb-1">{job.title}</h3>
                     <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -285,8 +285,8 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
                 <p className="text-slate-500 font-medium italic">Пока никто не откликнулся</p>
               </div>
             ) : (
-              applications.map(app => (
-                <div key={app.id} className="bg-white rounded-3xl p-6 border border-slate-200 mb-4 shadow-sm">
+              applications.map((app, idx) => (
+                <div key={app.id || `ea-${idx}`} className="bg-white rounded-3xl p-6 border border-slate-200 mb-4 shadow-sm">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
@@ -526,15 +526,25 @@ export default function EmployerDashboard({ profile }: EmployerDashboardProps) {
                 </p>
                 <div className="bg-slate-900 text-white p-3 rounded-xl font-mono text-xs flex items-center justify-between">
                   <span>/link {profile.userId}</span>
-                  <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(`/link ${profile.userId}`);
-                      alert('Команда скопирована!');
-                    }}
-                    className="text-blue-400 hover:text-blue-300 font-bold"
-                  >
-                    Копировать
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(`/link ${profile.userId}`);
+                        alert('Команда скопирована!');
+                      }}
+                      className="text-blue-400 hover:text-blue-300 font-bold"
+                    >
+                      Копировать
+                    </button>
+                    <a 
+                      href={`https://t.me/mangystau_jumys_bot?start=${profile.userId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-white bg-blue-600 px-3 py-1 rounded-lg hover:bg-blue-700 font-bold"
+                    >
+                      Открыть Бота
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

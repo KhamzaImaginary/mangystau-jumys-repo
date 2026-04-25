@@ -125,7 +125,7 @@ export default function SeekerDashboard({ profile }: SeekerDashboardProps) {
     return (
       <div className="space-y-4">
         {Array(3).fill(0).map((_, i) => (
-          <div key={i} className="bg-white rounded-3xl h-40 animate-pulse border border-slate-100" />
+          <div key={`seeker-skeleton-${i}`} className="bg-white rounded-3xl h-40 animate-pulse border border-slate-100" />
         ))}
       </div>
     );
@@ -179,9 +179,9 @@ export default function SeekerDashboard({ profile }: SeekerDashboardProps) {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {applications.map(app => (
+                {applications.map((app, idx) => (
                   <motion.div 
-                    key={app.id}
+                    key={app.id || `app-${idx}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm hover:border-blue-300 transition-all"
@@ -246,13 +246,49 @@ export default function SeekerDashboard({ profile }: SeekerDashboardProps) {
                   Настройте фильтры, чтобы первыми узнавать о подходящей работе через Telegram.
                 </p>
               </div>
-              <button 
-                onClick={() => setShowAddAlert(true)}
-                className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-200 flex items-center gap-2 hover:bg-blue-700 transition-all"
-              >
-                <Plus size={18} /> Создать алерт
-              </button>
+              <div className="flex gap-2">
+                {!profile.telegramId && (
+                  <a 
+                    href={`https://t.me/mangystau_jumys_bot?start=${profile.userId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-6 py-3 bg-slate-100 text-blue-600 border border-blue-200 rounded-2xl font-bold text-sm flex items-center gap-2 hover:bg-blue-50 transition-all"
+                  >
+                    <MessageSquare size={18} /> Подключить Telegram
+                  </a>
+                )}
+                <button 
+                  onClick={() => setShowAddAlert(true)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-200 flex items-center gap-2 hover:bg-blue-700 transition-all"
+                >
+                  <Plus size={18} /> Создать алерт
+                </button>
+              </div>
             </div>
+
+            {!profile.telegramId && (
+              <div className="bg-blue-600 rounded-3xl p-6 text-white relative overflow-hidden shadow-xl shadow-blue-100">
+                <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+                  <MessageSquare size={120} />
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="max-w-md">
+                    <h3 className="text-xl font-bold mb-2">Получайте вакансии мгновенно!</h3>
+                    <p className="text-blue-100 text-sm">
+                      Подключите Telegram, чтобы получать уведомления о новых вакансиях и статусах ваших откликов прямо в мессенджер. Это бесплатно и удобно.
+                    </p>
+                  </div>
+                  <a 
+                    href={`https://t.me/mangystau_jumys_bot?start=${profile.userId}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-white text-blue-600 px-8 py-4 rounded-2xl font-bold text-sm shadow-lg hover:scale-105 transition-transform whitespace-nowrap"
+                  >
+                    🚀 Подключить Бот
+                  </a>
+                </div>
+              </div>
+            )}
 
             {showAddAlert && (
               <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -332,8 +368,8 @@ export default function SeekerDashboard({ profile }: SeekerDashboardProps) {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {alerts.map(alert => (
-                  <div key={alert.id} className="bg-white rounded-3xl p-6 border border-slate-200 flex items-start justify-between">
+                {alerts.map((alert, idx) => (
+                  <div key={alert.id || `alert-${idx}`} className="bg-white rounded-3xl p-6 border border-slate-200 flex items-start justify-between">
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">

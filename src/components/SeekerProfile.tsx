@@ -50,7 +50,7 @@ export default function SeekerProfile({ userId, email, initialProfile, isInitial
       email,
       phone,
       bio,
-      skills: skills.split(',').map(s => s.trim()).filter(s => s),
+      skills: [...new Set(skills.split(',').map(s => s.trim()).filter(s => s))] as string[],
       location,
       telegramId,
       createdAt: initialProfile?.createdAt || new Date().toISOString()
@@ -176,16 +176,26 @@ export default function SeekerProfile({ userId, email, initialProfile, isInitial
             </p>
             <div className="bg-white p-2 rounded-xl border border-blue-200 font-mono text-[10px] flex items-center justify-between">
               <span>/link {userId}</span>
-              <button 
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(`/link ${userId}`);
-                  alert('Команда скопирована!');
-                }}
-                className="text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded"
-              >
-                Копировать
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`/link ${userId}`);
+                    alert('Команда скопирована!');
+                  }}
+                  className="text-blue-600 font-bold px-2 py-1 hover:bg-blue-50 rounded"
+                >
+                  Копировать
+                </button>
+                <a 
+                  href={`https://t.me/mangystau_jumys_bot?start=${userId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-blue-600 text-white font-bold px-2 py-1 rounded hover:bg-blue-700"
+                >
+                  Открыть бот
+                </a>
+              </div>
             </div>
           </div>
         )}
@@ -228,21 +238,6 @@ export default function SeekerProfile({ userId, email, initialProfile, isInitial
             className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:outline-none h-24"
             placeholder="Краткая информация..."
           />
-        </div>
-
-        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-          <label className="block text-[10px] uppercase tracking-widest font-bold text-blue-400 mb-2">Интеграция с Telegram</label>
-          <div className="relative">
-            <Send className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" size={16} />
-            <input 
-              type="text" 
-              value={telegramId} 
-              onChange={(e) => setTelegramId(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-white border border-blue-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium"
-              placeholder="@username"
-            />
-          </div>
-          <p className="text-[11px] text-blue-600 mt-2 font-medium">Мы сообщим вам о новых откликах и сообщениях</p>
         </div>
 
         <button 
